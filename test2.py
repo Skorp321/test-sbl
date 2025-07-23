@@ -9,7 +9,8 @@ import os
 import argparse
 from pathlib import Path
 from typing import List, Optional
-import pickle
+
+from improved_text_splitter import ImprovedTextSplitter
 
 # LangChain импорты
 from langchain_community.document_loaders import Docx2txtLoader
@@ -31,13 +32,14 @@ class DocumentProcessor:
         """
         self.embeddings = HuggingFaceEmbeddings(
             model_name=embeddings_model,
-            model_kwargs={'device': 'cpu'}
+            model_kwargs={'device': 'cuda'}
         )
-        self.text_splitter = RecursiveCharacterTextSplitter(
+        """self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=200,
             length_function=len,
-        )
+        )"""
+        self.text_splitter = ImprovedTextSplitter()
         self.vectorstore: Optional[FAISS] = None
     
     def load_docx_files(self, file_paths: List[str]) -> List[Document]:
@@ -132,7 +134,18 @@ class DocumentProcessor:
         print(f"Разбиение {len(documents)} документов на чанки...")
         
         # Разбиваем документы на чанки
-        chunks = self.text_splitter.split_documents(documents)
+        #chunks = self.text_splitter.split_documents(documents)
+        chunks = []
+        for document in documents:
+            one_chunks = self.text_splitter.split_text(document.page_content, add_headers=True)
+            for chunk in one_chunks:
+                # Только содержательные части превращаем в Document
+                if chunk['type'] == 'content':
+                    # Можно добавить метаданные, например, источник и заголовок
+                    metadata = dict(document.metadata) if hasattr(document, "metadata") else {}
+                    if 'header' in chunk:
+                        metadata['header'] = chunk['header']
+                    chunks.append(Document(page_content=chunk['content'], metadata=metadata))
         print(f"Создано {len(chunks)} чанков")
         
         # Создаем векторное хранилище

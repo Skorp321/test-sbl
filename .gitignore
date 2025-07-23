@@ -1,0 +1,8 @@
+.qodo
+__pycache__
+chroma_db_documents
+concurse/.env
+data
+vectorstore
+venv
+*.pdf
